@@ -1,0 +1,1927 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MigTel - Gestión de Instalaciones y Trabajos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN for Analytics Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        migtel: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active {
+            border-bottom: 3px solid #0284c7;
+            color: #0284c7;
+            font-weight: 600;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background-color: white; color: black; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Navbar Header -->
+    <header class="bg-migtel-900 text-white shadow-lg sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo & Brand -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-lg bg-migtel-500 flex items-center justify-center font-bold text-xl shadow-md text-white">
+                        <i class="fa-solid fa-satellite-dish"></i>
+                    </div>
+                    <div>
+                        <span class="font-bold text-xl tracking-wide text-white">MigTel</span>
+                        <span class="text-xs text-migtel-100 block -mt-1 font-light">Control de Instalaciones y Asignaciones</span>
+                    </div>
+                </div>
+
+                <!-- Quick Stats Badge -->
+                <div class="hidden md:flex items-center space-x-4 text-xs">
+                    <div class="bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
+                        <span class="text-slate-400">Hoy:</span>
+                        <span id="quick-stat-today" class="font-bold text-cyan-400 ml-1">0 Trabajos</span>
+                    </div>
+                    <div class="bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
+                        <span class="text-slate-400">Regiones:</span>
+                        <span class="font-bold text-emerald-400 ml-1">5 Coberturas</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="bg-slate-800 border-t border-slate-700/60">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <nav class="flex space-x-2 sm:space-x-8 overflow-x-auto py-2 scrollbar-none" id="main-tabs">
+                    <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-3 py-2 text-sm font-medium rounded-md whitespace-nowrap text-white bg-slate-700 shadow-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-chart-line text-cyan-400"></i>
+                        <span>Dashboard Principal</span>
+                    </button>
+                    <button onclick="switchTab('registro')" id="tab-registro" class="px-3 py-2 text-sm font-medium rounded-md whitespace-nowrap text-slate-300 hover:text-white transition-colors flex items-center space-x-2">
+                        <i class="fa-solid fa-square-plus text-indigo-400"></i>
+                        <span>Nuevo Registro</span>
+                    </button>
+                    <button onclick="switchTab('historial')" id="tab-historial" class="px-3 py-2 text-sm font-medium rounded-md whitespace-nowrap text-slate-300 hover:text-white transition-colors flex items-center space-x-2">
+                        <i class="fa-solid fa-list-check text-emerald-400"></i>
+                        <span>Historial de Trabajos</span>
+                    </button>
+                    <button onclick="switchTab('reportes')" id="tab-reportes" class="px-3 py-2 text-sm font-medium rounded-md whitespace-nowrap text-slate-300 hover:text-white transition-colors flex items-center space-x-2">
+                        <i class="fa-solid fa-chart-pie text-amber-400"></i>
+                        <span>Reportes y Nómina</span>
+                    </button>
+                    <button onclick="switchTab('tecnicos')" id="tab-tecnicos" class="px-3 py-2 text-sm font-medium rounded-md whitespace-nowrap text-slate-300 hover:text-white transition-colors flex items-center space-x-2">
+                        <i class="fa-solid fa-users text-sky-400"></i>
+                        <span>Técnicos</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- TAB 0: DASHBOARD PRINCIPAL -->
+        <div id="view-dashboard" class="space-y-6">
+
+            <!-- Section Header -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                        <i class="fa-solid fa-gauge-high text-migtel-500"></i>
+                        <span>Dashboard Principal de Rendimiento</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 mt-0.5">Visión general del estado del servicio, personal desplegado por región y volumen de instalaciones.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-semibold px-3 py-1.5 bg-migtel-50 text-migtel-700 rounded-lg border border-migtel-100 flex items-center space-x-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Sistema En Vivo</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Dashboard Quick KPI Cards Row 1 (Temporal Activity Stats) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Instalaciones del Día -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div>
+                        <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Instalaciones (Hoy)</span>
+                        <div class="text-3xl font-black text-migtel-600 mt-1" id="kpi-inst-day">0</div>
+                        <p class="text-[11px] text-slate-500 mt-0.5" id="kpi-inst-day-sub">Registradas hoy</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-calendar-day"></i>
+                    </div>
+                </div>
+
+                <!-- Instalaciones de la Semana -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div>
+                        <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Instalaciones (Semana)</span>
+                        <div class="text-3xl font-black text-indigo-600 mt-1" id="kpi-inst-week">0</div>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Semana en curso</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-calendar-week"></i>
+                    </div>
+                </div>
+
+                <!-- Instalaciones del Mes -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div>
+                        <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Instalaciones (Mes)</span>
+                        <div class="text-3xl font-black text-emerald-600 mt-1" id="kpi-inst-month">0</div>
+                        <p class="text-[11px] text-slate-500 mt-0.5" id="kpi-inst-month-sub">Mes actual</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-calendar-days"></i>
+                    </div>
+                </div>
+
+                <!-- Total Trabajos Especiales (Mes) -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div>
+                        <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Trabajos Esp. (Mes)</span>
+                        <div class="text-3xl font-black text-amber-600 mt-1" id="kpi-spec-month">0</div>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Mantenimientos y Nodos</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Row 2: Finance & Team Performance -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-slate-900 text-white p-5 rounded-xl shadow-sm flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase text-slate-400 tracking-wider block">Monto Producción (Mes)</span>
+                        <span class="text-2xl font-black text-emerald-400 mt-1 block" id="kpi-revenue-month">$0.00</span>
+                        <span class="text-[11px] text-slate-400">Facturación acumulada</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-sack-dollar"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase text-slate-400 tracking-wider block">Técnico Destacado (Mes)</span>
+                        <span class="text-base font-bold text-slate-900 mt-1 block truncate max-w-[180px]" id="kpi-top-tech-name">--</span>
+                        <span class="text-[11px] text-migtel-600 font-semibold" id="kpi-top-tech-count">0 Trabajos</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase text-slate-400 tracking-wider block">Promedio por Técnico</span>
+                        <span class="text-2xl font-black text-indigo-600 mt-1 block" id="kpi-avg-per-tech">0.0</span>
+                        <span class="text-[11px] text-slate-500">Servicios / trabajador en mes</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-chart-user"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Double Grid: Pie Chart Region & Tech Count by Region -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Chart 1: Regional Distribution of Installations -->
+                <div class="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+                                <i class="fa-solid fa-chart-pie text-migtel-500"></i>
+                                <span>Distribución de Instalaciones por Organización / Región</span>
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Proporción de instalaciones ejecutadas según la zona geográfica.</p>
+                        </div>
+                        <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full whitespace-nowrap" id="chart-total-badge">
+                            Total: 0 Instalaciones
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                        <!-- Canvas Chart -->
+                        <div class="sm:col-span-7 flex justify-center items-center p-2 relative h-64">
+                            <canvas id="regionPieChart"></canvas>
+                        </div>
+
+                        <!-- Legend -->
+                        <div class="sm:col-span-5 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2">
+                            <h4 class="text-[11px] font-bold uppercase text-slate-500 tracking-wider mb-2">Desglose por Región</h4>
+                            <div id="region-legend-list" class="space-y-1.5 text-xs">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Widget 2: Personal (Técnicos) por Organización / Región -->
+                <div class="lg:col-span-5 bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="pb-3 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+                                <i class="fa-solid fa-users-gear text-indigo-500"></i>
+                                <span>Personal por Organización</span>
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Cantidad de técnicos adscritos por región geográfica.</p>
+                        </div>
+                        <span class="text-xs font-bold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full" id="dash-total-techs-badge">
+                            0 Técnicos
+                        </span>
+                    </div>
+
+                    <!-- Tech Count List by Region -->
+                    <div id="techs-by-region-container" class="space-y-3 pt-1">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- TAB 1: REGISTRO DE TRABAJOS E INSTALACIONES (Solo formulario) -->
+        <div id="view-registro" class="hidden space-y-6">
+            
+            <!-- Type Selector Toggle Header -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+                <div class="sm:flex sm:items-center sm:justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Registrar Nueva Actividad</h2>
+                        <p class="text-sm text-slate-500">Selecciona el tipo de trabajo para contabilizar y calcular los pagos por técnico.</p>
+                    </div>
+                </div>
+
+                <!-- Toggle Selector -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1 bg-slate-100 rounded-lg">
+                    <button type="button" onclick="setJobType('instalacion')" id="btn-type-instalacion" class="py-3 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center space-x-2 bg-white text-migtel-600 shadow-sm">
+                        <i class="fa-solid fa-house-signal text-lg"></i>
+                        <span>Instalación Estándar ($15 Base)</span>
+                    </button>
+                    <button type="button" onclick="setJobType('especial')" id="btn-type-especial" class="py-3 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center space-x-2 text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-wrench text-lg"></i>
+                        <span>Otro Trabajo / Asignación Especial</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Registration Form Card -->
+            <form id="job-form" onsubmit="handleFormSubmit(event)" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-6">
+                
+                <input type="hidden" id="form-job-type" value="instalacion">
+
+                <!-- Dynamic Info Banner -->
+                <div id="form-type-banner" class="bg-sky-50 border-l-4 border-sky-500 p-4 rounded-r-md flex items-start space-x-3">
+                    <i class="fa-solid fa-circle-info text-sky-600 text-lg mt-0.5"></i>
+                    <div>
+                        <h4 class="font-semibold text-sky-900 text-sm">Modo: Instalación Estándar</h4>
+                        <p class="text-xs text-sky-700 mt-0.5">
+                            El precio base predeterminado es <strong>$15.00</strong>. Si intervienen varios técnicos, la cantidad se dividirá automáticamente a partes iguales.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Form Inputs Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    
+                    <!-- Fecha del Registro -->
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1" for="job-date">
+                            Fecha de Realización <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" id="job-date" required class="w-full rounded-lg border-slate-300 border p-2.5 text-sm focus:ring-2 focus:ring-migtel-500 focus:border-migtel-500 outline-none">
+                    </div>
+
+                    <!-- Región -->
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1" for="job-region">
+                            Región / Zona <span class="text-red-500">*</span>
+                        </label>
+                        <select id="job-region" required class="w-full rounded-lg border-slate-300 border p-2.5 text-sm focus:ring-2 focus:ring-migtel-500 focus:border-migtel-500 outline-none bg-white">
+                            <option value="" disabled selected>Seleccione una región...</option>
+                            <option value="Caracas">Caracas</option>
+                            <option value="Guatire-Guarenas">Guatire-Guarenas</option>
+                            <option value="Caucagua">Caucagua</option>
+                            <option value="Higuerote">Higuerote</option>
+                            <option value="Barlovento">Barlovento</option>
+                        </select>
+                    </div>
+
+                    <!-- Monto del Trabajo -->
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1" for="job-amount">
+                            Monto Total ($ USD) <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-bold">$</span>
+                            <input type="number" step="0.01" min="0" id="job-amount" value="15.00" required oninput="calculateSplit()" class="w-full pl-8 rounded-lg border-slate-300 border p-2.5 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-migtel-500 focus:border-migtel-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Fields for "Otro Trabajo Especial" -->
+                <div id="fields-especial" class="hidden space-y-4 pt-2 border-t border-slate-100">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1" for="job-title">
+                                Título del Trabajo / Asignación <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="job-title" placeholder="Ej. Mantenimiento de Fibra / Reparación de Nodo" class="w-full rounded-lg border-slate-300 border p-2.5 text-sm focus:ring-2 focus:ring-migtel-500 focus:border-migtel-500 outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1" for="job-client">
+                                Cliente / Referencia (Opcional)
+                            </label>
+                            <input type="text" id="job-client" placeholder="Nombre de cliente o código de abonado" class="w-full rounded-lg border-slate-300 border p-2.5 text-sm focus:ring-2 focus:ring-migtel-500 focus:border-migtel-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1" for="job-description">
+                            Explicación / Detalles del Trabajo <span class="text-red-500">*</span>
+                        </label>
+                        <textarea id="job-description" rows="3" placeholder="Explique brevemente las tareas ejecutadas en esta asignación..." class="w-full rounded-lg border-slate-300 border p-2.5 text-sm focus:ring-2 focus:ring-migtel-500 focus:border-migtel-500 outline-none"></textarea>
+                    </div>
+                </div>
+
+                <!-- Field for standard installation reference (optional) -->
+                <div id="fields-instalacion-extra" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-slate-100">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1" for="job-client-inst">
+                            Nombre del Cliente / Nº Contrato (Opcional)
+                        </label>
+                        <input type="text" id="job-client-inst" placeholder="Ej. Juan Pérez - Orden #4092" class="w-full rounded-lg border-slate-300 border p-2.5 text-sm focus:ring-2 focus:ring-migtel-500 focus:border-migtel-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1" for="job-notes-inst">
+                            Observaciones de Instalación
+                        </label>
+                        <input type="text" id="job-notes-inst" placeholder="Ej. Instalación de ONU + Router Wi-Fi" class="w-full rounded-lg border-slate-300 border p-2.5 text-sm focus:ring-2 focus:ring-migtel-500 focus:border-migtel-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Selección de Técnicos Involucrados -->
+                <div class="space-y-3 pt-4 border-t border-slate-200">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                            Técnicos Involucrados en el Trabajo <span class="text-red-500">*</span>
+                        </label>
+                        <span id="selected-techs-count" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">
+                            0 seleccionados
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500">Marque los trabajadores que realizaron esta labor para dividir el monto total.</p>
+
+                    <!-- Tech Checkbox Grid -->
+                    <div id="tech-selection-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <!-- Loaded via JS -->
+                    </div>
+                </div>
+
+                <!-- Split Calculation Live Preview Widget -->
+                <div class="bg-slate-900 text-white p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg font-bold">
+                            <i class="fa-solid fa-calculator"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-400 font-medium">División del Pago por Técnico:</div>
+                            <div class="text-2xl font-extrabold text-emerald-400" id="preview-split-amount">$0.00</div>
+                        </div>
+                    </div>
+                    <div class="text-right text-xs text-slate-400 border-t sm:border-t-0 border-slate-800 pt-2 sm:pt-0">
+                        <div>Monto Total: <span id="preview-total-amount" class="text-white font-semibold">$15.00</span></div>
+                        <div>Nº de Técnicos: <span id="preview-tech-count" class="text-white font-semibold">0</span></div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="flex justify-end pt-2">
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 bg-migtel-600 hover:bg-migtel-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Guardar Registro</span>
+                    </button>
+                </div>
+
+            </form>
+        </div>
+
+        <!-- TAB 2: HISTORIAL DE REGISTROS -->
+        <div id="view-historial" class="hidden space-y-6">
+            
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Historial Completo de Trabajos</h2>
+                        <p class="text-sm text-slate-500">Listado de todas las instalaciones y servicios registrados en el sistema.</p>
+                    </div>
+
+                    <!-- Quick Search Input -->
+                    <div class="relative min-w-[240px]">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-sm"></i>
+                        <input type="text" id="history-search" oninput="renderHistoryTable()" placeholder="Buscar por cliente, título..." class="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-migtel-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Filter Controls Bar -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Filtrar por Región</label>
+                        <select id="filter-history-region" onchange="renderHistoryTable()" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-slate-50 focus:bg-white">
+                            <option value="all">Todas las Regiones</option>
+                            <option value="Caracas">Caracas</option>
+                            <option value="Guatire-Guarenas">Guatire-Guarenas</option>
+                            <option value="Caucagua">Caucagua</option>
+                            <option value="Higuerote">Higuerote</option>
+                            <option value="Barlovento">Barlovento</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Filtrar por Tipo</label>
+                        <select id="filter-history-type" onchange="renderHistoryTable()" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-slate-50 focus:bg-white">
+                            <option value="all">Todos los Tipos</option>
+                            <option value="instalacion">Solo Instalaciones ($15 Base)</option>
+                            <option value="especial">Solo Trabajos Especiales</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Ordenar por</label>
+                        <select id="filter-history-sort" onchange="renderHistoryTable()" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-slate-50 focus:bg-white">
+                            <option value="newest">Más Recientes Primero</option>
+                            <option value="oldest">Más Antiguos Primero</option>
+                            <option value="amount-high">Monto Mayor</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                            <tr>
+                                <th class="py-3.5 px-4">Fecha</th>
+                                <th class="py-3.5 px-4">Tipo / Título</th>
+                                <th class="py-3.5 px-4">Región</th>
+                                <th class="py-3.5 px-4">Técnicos Involucrados</th>
+                                <th class="py-3.5 px-4 text-right">Monto Total</th>
+                                <th class="py-3.5 px-4 text-right">Pago / Técnico</th>
+                                <th class="py-3.5 px-4 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-200">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="history-empty" class="hidden p-8 text-center text-slate-500">
+                    <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-2"></i>
+                    <p class="font-medium">No se encontraron registros con los filtros seleccionados.</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TAB 3: REPORTES Y NÓMINA -->
+        <div id="view-reportes" class="hidden space-y-6">
+            
+            <!-- Filters Card for Reporting -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4 no-print">
+                <div class="sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Generar Reporte y Contabilidad de Nómina</h2>
+                        <p class="text-sm text-slate-500">Selecciona el rango de fechas y la región para liquidar los pagos a los técnicos.</p>
+                    </div>
+                    <div class="mt-3 sm:mt-0 flex space-x-2">
+                        <button onclick="window.print()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg border border-slate-300 transition-colors flex items-center space-x-1.5">
+                            <i class="fa-solid fa-print"></i>
+                            <span>Imprimir</span>
+                        </button>
+                        <button onclick="exportReportToCSV()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow transition-colors flex items-center space-x-1.5">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>Exportar CSV</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1" for="report-date-start">Fecha Desde</label>
+                        <input type="date" id="report-date-start" onchange="generateReport()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-migtel-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1" for="report-date-end">Fecha Hasta</label>
+                        <input type="date" id="report-date-end" onchange="generateReport()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-migtel-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1" for="report-region">Filtrar por Región</label>
+                        <select id="report-region" onchange="generateReport()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-migtel-500 outline-none bg-white">
+                            <option value="all">Todas las Regiones</option>
+                            <option value="Caracas">Caracas</option>
+                            <option value="Guatire-Guarenas">Guatire-Guarenas</option>
+                            <option value="Caucagua">Caucagua</option>
+                            <option value="Higuerote">Higuerote</option>
+                            <option value="Barlovento">Barlovento</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="setQuickDateRange('month')" class="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 transition-colors">
+                            Este Mes Actual
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report Header Print Info -->
+            <div class="hidden print-only bg-white p-4 border-b">
+                <h1 class="text-2xl font-bold">MigTel - Reporte Consolidado de Instalaciones y Nómina</h1>
+                <p id="print-date-range-text" class="text-sm text-gray-600">Período de Reporte</p>
+            </div>
+
+            <!-- Summary Dashboard Widgets for Selected Range -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-calculator"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold text-slate-400 uppercase">Monto Total Trabajos</div>
+                        <div class="text-2xl font-black text-slate-900" id="report-summary-total-amount">$0.00</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold text-slate-400 uppercase">Total a Pagar Técnicos</div>
+                        <div class="text-2xl font-black text-emerald-600" id="report-summary-payroll">$0.00</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-house-signal"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold text-slate-400 uppercase">Instalaciones Estándar</div>
+                        <div class="text-2xl font-black text-slate-900" id="report-summary-count-inst">0</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold text-slate-400 uppercase">Trabajos Especiales</div>
+                        <div class="text-2xl font-black text-slate-900" id="report-summary-count-spec">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Per Technician Payroll Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-900">Resumen de Liquidación por Técnico</h3>
+                        <p class="text-xs text-slate-500">Monto individual acumulado por concepto de participación en trabajos.</p>
+                    </div>
+                    <span class="text-xs font-semibold bg-migtel-100 text-migtel-700 px-3 py-1 rounded-full" id="report-region-badge">
+                        Todas las Regiones
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                            <tr>
+                                <th class="py-3.5 px-4">Técnico</th>
+                                <th class="py-3.5 px-4 text-center">Nº Instalaciones ($15)</th>
+                                <th class="py-3.5 px-4 text-center">Nº Trabajos Especiales</th>
+                                <th class="py-3.5 px-4 text-center">Total Participaciones</th>
+                                <th class="py-3.5 px-4 text-right">Monto Total Ganado ($)</th>
+                                <th class="py-3.5 px-4 text-center no-print">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-tech-table-body" class="divide-y divide-slate-200">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TAB 4: GESTIÓN DE TÉCNICOS -->
+        <div id="view-tecnicos" class="hidden space-y-6">
+            
+            <!-- Technicians Management Banner -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Plantilla y Expedientes de Técnicos</h2>
+                    <p class="text-sm text-slate-500">Gestión de datos corporativos, tallas de uniforme, asignación regional y estado del personal.</p>
+                </div>
+                <button onclick="openTechModalForAdd()" class="px-4 py-2.5 bg-migtel-600 hover:bg-migtel-700 text-white font-semibold text-xs rounded-lg shadow transition-colors flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Nuevo Técnico</span>
+                </button>
+            </div>
+
+            <!-- Technicians Grid Display -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
+                <div class="flex items-center justify-between border-b pb-3 border-slate-100">
+                    <span class="font-bold text-slate-800 text-sm">Personal Registrado</span>
+                    <span id="total-techs-badge" class="bg-slate-100 text-slate-700 font-semibold text-xs px-3 py-1 rounded-full">
+                        0 Técnicos
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="tech-cards-container">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Tech Add/Edit Modal -->
+    <div id="tech-form-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="p-4 sm:p-5 bg-migtel-900 text-white flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-migtel-500 flex items-center justify-center text-white font-bold">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base" id="modal-tech-form-title">Registrar Nuevo Técnico</h3>
+                        <p class="text-xs text-migtel-100">Expediente técnico y datos de indumentaria</p>
+                    </div>
+                </div>
+                <button onclick="closeTechFormModal()" class="text-slate-300 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <form id="tech-modal-form" onsubmit="handleSaveTechnician(event)" class="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
+                <input type="hidden" id="tech-edit-id" value="">
+
+                <!-- Seccion 1: Datos Personales e Identificación -->
+                <div class="space-y-3">
+                    <h4 class="font-bold uppercase text-slate-500 tracking-wider text-[11px] border-b pb-1">1. Información Personal e Identificación</h4>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-name">Nombre y Apellido <span class="text-red-500">*</span></label>
+                            <input type="text" id="tech-name" required placeholder="Ej. Carlos Mendoza" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-ci">Cédula de Identidad (C.I.) <span class="text-red-500">*</span></label>
+                            <input type="text" id="tech-ci" required placeholder="Ej. V-18.234.567" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-phone">Teléfono <span class="text-red-500">*</span></label>
+                            <input type="text" id="tech-phone" required placeholder="Ej. 0414-5551234" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-email">Correo Electrónico</label>
+                            <input type="email" id="tech-email" placeholder="Ej. c.mendoza@migtel.com" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1" for="tech-address">Dirección de Habitación</label>
+                        <input type="text" id="tech-address" placeholder="Ej. Guarenas, Sector Terrazas, Casa #45" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Seccion 2: Datos Laborales -->
+                <div class="space-y-3 pt-2">
+                    <h4 class="font-bold uppercase text-slate-500 tracking-wider text-[11px] border-b pb-1">2. Cargo y Adscripción Laboral</h4>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-region">Región Principal <span class="text-red-500">*</span></label>
+                            <select id="tech-region" required class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none bg-white">
+                                <option value="Caracas">Caracas</option>
+                                <option value="Guatire-Guarenas">Guatire-Guarenas</option>
+                                <option value="Caucagua">Caucagua</option>
+                                <option value="Higuerote">Higuerote</option>
+                                <option value="Barlovento">Barlovento</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-department">Departamento</label>
+                            <input type="text" id="tech-department" placeholder="Ej. Operaciones / Planta Exterior" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-position">Cargo</label>
+                            <input type="text" id="tech-position" placeholder="Ej. Técnico Instalador Senior" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seccion 3: Tallas de Uniforme e Indumentaria -->
+                <div class="space-y-3 pt-2">
+                    <h4 class="font-bold uppercase text-slate-500 tracking-wider text-[11px] border-b pb-1">3. Tallas de Indumentaria y Dotación</h4>
+                    
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-shirt">Talla Camisa</label>
+                            <select id="tech-shirt" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none bg-white">
+                                <option value="S">S</option>
+                                <option value="M" selected>M</option>
+                                <option value="L">L</option>
+                                <option value="XL">XL</option>
+                                <option value="XXL">XXL</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-pant">Talla Pantalón</label>
+                            <input type="text" id="tech-pant" placeholder="Ej. 32" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1" for="tech-shoes">Talla Zapatos</label>
+                            <input type="text" id="tech-shoes" placeholder="Ej. 41" class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-migtel-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit / Buttons -->
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
+                    <button type="button" onclick="closeTechFormModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-migtel-600 hover:bg-migtel-700 text-white font-semibold rounded-lg shadow">
+                        Guardar Técnico
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Modal for Tech Detail View -->
+    <div id="tech-detail-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="p-4 sm:p-5 bg-migtel-900 text-white flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-lg" id="modal-tech-name">Detalle del Técnico</h3>
+                    <p class="text-xs text-migtel-100" id="modal-tech-subtitle">Desglose de trabajos realizados</p>
+                </div>
+                <button onclick="closeTechModal()" class="text-slate-300 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4">
+                <div class="grid grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg text-center">
+                    <div>
+                        <div class="text-xs text-slate-500">Instalaciones</div>
+                        <div class="text-lg font-bold text-slate-900" id="modal-stat-inst">0</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">Trabajos Esp.</div>
+                        <div class="text-lg font-bold text-slate-900" id="modal-stat-esp">0</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">Total Ganado</div>
+                        <div class="text-lg font-bold text-emerald-600" id="modal-stat-earned">$0.00</div>
+                    </div>
+                </div>
+
+                <h4 class="font-bold text-xs uppercase text-slate-500 tracking-wider">Lista de Trabajos en el Período</h4>
+                <div class="space-y-2 max-h-60 overflow-y-auto" id="modal-jobs-list">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 text-right">
+                <button onclick="closeTechModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold text-sm rounded-lg transition-colors">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <script>
+        // --- DATA STATE & INITIAL DEMO DATA ---
+        const DEFAULT_TECHS = [
+            { 
+                id: 'tech-1', 
+                name: 'Carlos Mendoza', 
+                ci: 'V-18.452.102',
+                phone: '0414-5551234', 
+                email: 'c.mendoza@migtel.com',
+                address: 'Guarenas, Sector Nueva Casarapa, Apt 2C',
+                department: 'Operaciones',
+                position: 'Técnico Senior Fibra',
+                shirtSize: 'L',
+                pantSize: '32',
+                shoeSize: '42',
+                region: 'Guatire-Guarenas', 
+                active: true 
+            },
+            { 
+                id: 'tech-2', 
+                name: 'José Rodríguez', 
+                ci: 'V-20.114.890',
+                phone: '0412-8889900', 
+                email: 'j.rodriguez@migtel.com',
+                address: 'Guatire, Valle Arriba',
+                department: 'Operaciones',
+                position: 'Instalador Planta Exterior',
+                shirtSize: 'M',
+                pantSize: '30',
+                shoeSize: '41',
+                region: 'Guatire-Guarenas', 
+                active: true 
+            },
+            { 
+                id: 'tech-3', 
+                name: 'Juan Pérez', 
+                ci: 'V-16.782.331',
+                phone: '0424-1112233', 
+                email: 'j.perez@migtel.com',
+                address: 'Caracas, El Recreo',
+                department: 'Mantenimiento',
+                position: 'Líder de Cuadrilla',
+                shirtSize: 'XL',
+                pantSize: '34',
+                shoeSize: '43',
+                region: 'Caracas', 
+                active: true 
+            },
+            { 
+                id: 'tech-4', 
+                name: 'Luis Fernández', 
+                ci: 'V-22.901.442',
+                phone: '0416-3334455', 
+                email: 'l.fernandez@migtel.com',
+                address: 'Caracas, Sucre',
+                department: 'Operaciones',
+                position: 'Empalmador FTTH',
+                shirtSize: 'M',
+                pantSize: '32',
+                shoeSize: '40',
+                region: 'Caracas', 
+                active: true 
+            },
+            { 
+                id: 'tech-5', 
+                name: 'Jesús Silva', 
+                ci: 'V-24.512.001',
+                phone: '0412-9990011', 
+                email: 'j.silva@migtel.com',
+                address: 'Higuerote, Av. Barlovento',
+                department: 'Operaciones',
+                position: 'Instalador',
+                shirtSize: 'M',
+                pantSize: '30',
+                shoeSize: '41',
+                region: 'Higuerote', 
+                active: true 
+            },
+            { 
+                id: 'tech-6', 
+                name: 'Gabriel Torres', 
+                ci: 'V-21.309.876',
+                phone: '0424-7778899', 
+                email: 'g.torres@migtel.com',
+                address: 'Caucagua, Centro',
+                department: 'Operaciones',
+                position: 'Instalador',
+                shirtSize: 'L',
+                pantSize: '34',
+                shoeSize: '42',
+                region: 'Barlovento', 
+                active: true 
+            }
+        ];
+
+        // Format dates helper
+        function getFormattedDate(offsetDays = 0) {
+            const d = new Date();
+            d.setDate(d.getDate() + offsetDays);
+            return d.toISOString().split('T')[0];
+        }
+
+        const DEMO_JOBS = [
+            {
+                id: 'job-101',
+                type: 'instalacion',
+                title: 'Instalación Estándar',
+                description: 'Instalación de fibra óptica + router',
+                client: 'Residencias Los Naranjos - Apt 4B',
+                region: 'Guatire-Guarenas',
+                date: getFormattedDate(0),
+                amount: 15.00,
+                techIds: ['tech-1', 'tech-2'],
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: 'job-102',
+                type: 'especial',
+                title: 'Reemplazo de Cable Troncal Mantenimiento',
+                description: 'Sustitución de 150m de cable drop dañado por intemperie',
+                client: 'Comercial La Central',
+                region: 'Caracas',
+                date: getFormattedDate(-1),
+                amount: 45.00,
+                techIds: ['tech-3', 'tech-4'],
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: 'job-103',
+                type: 'instalacion',
+                title: 'Instalación Estándar',
+                description: 'Instalación abonado residencial',
+                client: 'Sector El Recreo - Casa #12',
+                region: 'Higuerote',
+                date: getFormattedDate(-2),
+                amount: 15.00,
+                techIds: ['tech-5'],
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: 'job-104',
+                type: 'especial',
+                title: 'Empalme de Fibra de Emergencia',
+                description: 'Fusión de hilos en caja Nap tras corte de energía',
+                client: 'Nodo Central Caucagua',
+                region: 'Caucagua',
+                date: getFormattedDate(-3),
+                amount: 30.00,
+                techIds: ['tech-1', 'tech-5', 'tech-6'],
+                createdAt: new Date().toISOString()
+            }
+        ];
+
+        // Load or initialize state
+        let technicians = JSON.parse(localStorage.getItem('migtel_techs')) || DEFAULT_TECHS;
+        let jobs = JSON.parse(localStorage.getItem('migtel_jobs')) || DEMO_JOBS;
+        let regionPieChartInstance = null;
+
+        // Save State
+        function saveData() {
+            localStorage.setItem('migtel_techs', JSON.stringify(technicians));
+            localStorage.setItem('migtel_jobs', JSON.stringify(jobs));
+            updateDashboardMetricsAndChart();
+        }
+
+        function switchTab(tabId) {
+            const tabs = ['dashboard', 'registro', 'historial', 'reportes', 'tecnicos'];
+            tabs.forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const tabBtn = document.getElementById(`tab-${t}`);
+                if (t === tabId) {
+                    view.classList.remove('hidden');
+                    tabBtn.classList.add('bg-slate-700', 'text-white', 'shadow-sm');
+                    tabBtn.classList.remove('text-slate-300');
+                } else {
+                    view.classList.add('hidden');
+                    tabBtn.classList.remove('bg-slate-700', 'text-white', 'shadow-sm');
+                    tabBtn.classList.add('text-slate-300');
+                }
+            });
+
+            if (tabId === 'dashboard') updateDashboardMetricsAndChart();
+            if (tabId === 'historial') renderHistoryTable();
+            if (tabId === 'reportes') generateReport();
+            if (tabId === 'tecnicos') renderTechsList();
+        }
+
+        // Job Type Toggle Handlers
+        function setJobType(type) {
+            const btnInst = document.getElementById('btn-type-instalacion');
+            const btnEsp = document.getElementById('btn-type-especial');
+            const hiddenType = document.getElementById('form-job-type');
+            const banner = document.getElementById('form-type-banner');
+            const amountInput = document.getElementById('job-amount');
+            const fieldsEspecial = document.getElementById('fields-especial');
+            const fieldsInst = document.getElementById('fields-instalacion-extra');
+            const titleInput = document.getElementById('job-title');
+            const descInput = document.getElementById('job-description');
+
+            hiddenType.value = type;
+
+            if (type === 'instalacion') {
+                btnInst.className = "py-3 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center space-x-2 bg-white text-migtel-600 shadow-sm";
+                btnEsp.className = "py-3 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center space-x-2 text-slate-600 hover:text-slate-900";
+                
+                banner.className = "bg-sky-50 border-l-4 border-sky-500 p-4 rounded-r-md flex items-start space-x-3";
+                banner.innerHTML = `
+                    <i class="fa-solid fa-circle-info text-sky-600 text-lg mt-0.5"></i>
+                    <div>
+                        <h4 class="font-semibold text-sky-900 text-sm">Modo: Instalación Estándar</h4>
+                        <p class="text-xs text-sky-700 mt-0.5">El precio base predeterminado es <strong>$15.00</strong>. Si intervienen varios técnicos, la cantidad se dividirá automáticamente a partes iguales.</p>
+                    </div>
+                `;
+
+                amountInput.value = "15.00";
+                fieldsEspecial.classList.add('hidden');
+                fieldsInst.classList.remove('hidden');
+                titleInput.removeAttribute('required');
+                descInput.removeAttribute('required');
+            } else {
+                btnEsp.className = "py-3 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center space-x-2 bg-white text-amber-600 shadow-sm";
+                btnInst.className = "py-3 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center space-x-2 text-slate-600 hover:text-slate-900";
+                
+                banner.className = "bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-md flex items-start space-x-3";
+                banner.innerHTML = `
+                    <i class="fa-solid fa-screwdriver-wrench text-amber-600 text-lg mt-0.5"></i>
+                    <div>
+                        <h4 class="font-semibold text-amber-900 text-sm">Modo: Otro Trabajo / Asignación Especial</h4>
+                        <p class="text-xs text-amber-700 mt-0.5">Introduce el título, la descripción y el monto total asignado a este trabajo. El monto se dividirá equitativamente entre los trabajadores seleccionados.</p>
+                    </div>
+                `;
+
+                fieldsEspecial.classList.remove('hidden');
+                fieldsInst.classList.add('hidden');
+                titleInput.setAttribute('required', 'true');
+                descInput.setAttribute('required', 'true');
+            }
+            calculateSplit();
+        }
+
+        function renderTechSelectionGrid() {
+            const grid = document.getElementById('tech-selection-grid');
+            grid.innerHTML = '';
+
+            const activeTechs = technicians.filter(t => t.active);
+
+            if (activeTechs.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-4 text-xs text-slate-400">No hay técnicos activos registrados. Ve a la pestaña 'Técnicos' para agregar.</div>`;
+                return;
+            }
+
+            activeTechs.forEach(tech => {
+                const label = document.createElement('label');
+                label.className = "flex items-center space-x-2.5 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-migtel-500 transition-colors select-none";
+                label.innerHTML = `
+                    <input type="checkbox" name="selected_techs" value="${tech.id}" onchange="calculateSplit()" class="w-4 h-4 text-migtel-600 rounded border-slate-300 focus:ring-migtel-500">
+                    <div class="truncate">
+                        <span class="text-xs font-semibold text-slate-800 block truncate">${tech.name}</span>
+                        <span class="text-[10px] text-slate-400 block -mt-0.5">${tech.region}</span>
+                    </div>
+                `;
+                grid.appendChild(label);
+            });
+        }
+
+        function calculateSplit() {
+            const amountInput = parseFloat(document.getElementById('job-amount').value) || 0;
+            const selectedCheckboxes = document.querySelectorAll('input[name="selected_techs"]:checked');
+            const count = selectedCheckboxes.length;
+
+            document.getElementById('selected-techs-count').textContent = `${count} seleccionado${count !== 1 ? 's' : ''}`;
+            document.getElementById('preview-tech-count').textContent = count;
+            document.getElementById('preview-total-amount').textContent = `$${amountInput.toFixed(2)}`;
+
+            const perTechAmount = count > 0 ? (amountInput / count) : 0;
+            document.getElementById('preview-split-amount').textContent = `$${perTechAmount.toFixed(2)}`;
+        }
+
+        // Form Submit Handler
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const type = document.getElementById('form-job-type').value;
+            const date = document.getElementById('job-date').value;
+            const region = document.getElementById('job-region').value;
+            const amount = parseFloat(document.getElementById('job-amount').value);
+            
+            const selectedTechBoxes = document.querySelectorAll('input[name="selected_techs"]:checked');
+            const techIds = Array.from(selectedTechBoxes).map(cb => cb.value);
+
+            if (techIds.length === 0) {
+                showToast('Debes seleccionar al menos un técnico involucrado.', 'error');
+                return;
+            }
+
+            let title = 'Instalación Estándar';
+            let description = '';
+            let client = '';
+
+            if (type === 'instalacion') {
+                client = document.getElementById('job-client-inst').value || 'Cliente Residencial';
+                description = document.getElementById('job-notes-inst').value || 'Instalación estándar de servicio MigTel ($15)';
+            } else {
+                title = document.getElementById('job-title').value;
+                description = document.getElementById('job-description').value;
+                client = document.getElementById('job-client').value || 'Asignación Especial';
+            }
+
+            const newJob = {
+                id: 'job-' + Date.now(),
+                type: type,
+                title: title,
+                description: description,
+                client: client,
+                region: region,
+                date: date,
+                amount: amount,
+                techIds: techIds,
+                createdAt: new Date().toISOString()
+            };
+
+            jobs.unshift(newJob);
+            saveData();
+
+            showToast('¡Registro guardado exitosamente con cálculo de nómina!', 'success');
+            
+            // Reset Form fields
+            document.getElementById('job-form').reset();
+            document.getElementById('job-date').value = getFormattedDate(0);
+            setJobType('instalacion');
+            calculateSplit();
+            updateQuickStats();
+            updateDashboardMetricsAndChart();
+        }
+
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-table-body');
+            const emptyState = document.getElementById('history-empty');
+            tbody.innerHTML = '';
+
+            const search = document.getElementById('history-search').value.toLowerCase();
+            const filterRegion = document.getElementById('filter-history-region').value;
+            const filterType = document.getElementById('filter-history-type').value;
+            const sort = document.getElementById('filter-history-sort').value;
+
+            let filtered = jobs.filter(job => {
+                const matchSearch = job.title.toLowerCase().includes(search) || 
+                                    job.description.toLowerCase().includes(search) || 
+                                    (job.client && job.client.toLowerCase().includes(search));
+                const matchRegion = filterRegion === 'all' || job.region === filterRegion;
+                const matchType = filterType === 'all' || job.type === filterType;
+                return matchSearch && matchRegion && matchType;
+            });
+
+            // Sorting logic
+            if (sort === 'newest') filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+            if (sort === 'oldest') filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+            if (sort === 'amount-high') filtered.sort((a, b) => b.amount - a.amount);
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filtered.forEach(job => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+
+                const splitAmount = (job.amount / job.techIds.length).toFixed(2);
+                
+                // Get names of involved techs
+                const techNames = job.techIds.map(id => {
+                    const found = technicians.find(t => t.id === id);
+                    return found ? found.name : 'Desconocido';
+                });
+
+                const badgeType = job.type === 'instalacion' 
+                    ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-100 text-sky-800"><i class="fa-solid fa-house-signal mr-1"></i>Instalación</span>`
+                    : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800"><i class="fa-solid fa-wrench mr-1"></i>Especial</span>`;
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-medium text-slate-600 whitespace-nowrap">${job.date}</td>
+                    <td class="py-3 px-4">
+                        <div class="font-bold text-slate-900">${job.title}</div>
+                        <div class="text-xs text-slate-500 truncate max-w-xs">${job.description} ${job.client ? '('+job.client+')' : ''}</div>
+                        <div class="mt-1">${badgeType}</div>
+                    </td>
+                    <td class="py-3 px-4 whitespace-nowrap">
+                        <span class="inline-block bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-medium">${job.region}</span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="text-xs font-semibold text-slate-800">${techNames.join(', ')}</div>
+                        <div class="text-[10px] text-slate-400">${job.techIds.length} técnico(s) equitativo</div>
+                    </td>
+                    <td class="py-3 px-4 text-right font-bold text-slate-900">$${job.amount.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-right font-bold text-emerald-600">$${splitAmount} c/u</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="deleteJob('${job.id}')" title="Eliminar Registro" class="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deleteJob(jobId) {
+            if (confirmModal('¿Estás seguro de eliminar este registro del historial?')) {
+                jobs = jobs.filter(j => j.id !== jobId);
+                saveData();
+                renderHistoryTable();
+                showToast('Registro eliminado.', 'info');
+                updateQuickStats();
+                updateDashboardMetricsAndChart();
+            }
+        }
+
+        function generateReport() {
+            const startDate = document.getElementById('report-date-start').value;
+            const endDate = document.getElementById('report-date-end').value;
+            const region = document.getElementById('report-region').value;
+
+            document.getElementById('report-region-badge').textContent = region === 'all' ? 'Todas las Regiones' : `Región: ${region}`;
+
+            // Filter jobs in range & region
+            const filtered = jobs.filter(job => {
+                const matchRegion = region === 'all' || job.region === region;
+                let matchDate = true;
+                if (startDate) matchDate = matchDate && job.date >= startDate;
+                if (endDate) matchDate = matchDate && job.date <= endDate;
+                return matchRegion && matchDate;
+            });
+
+            // Update Print Title Range Text
+            const printText = document.getElementById('print-date-range-text');
+            if (printText) {
+                printText.textContent = `Período: ${startDate || 'Inicio'} hasta ${endDate || 'Actualidad'} | Región: ${region === 'all' ? 'Todas' : region}`;
+            }
+
+            // Summary metrics
+            let totalAmount = 0;
+            let totalPayroll = 0;
+            let countInst = 0;
+            let countSpec = 0;
+
+            // Map tech totals: { techId: { instCount: 0, specCount: 0, earned: 0, totalJobs: 0 } }
+            const techMap = {};
+            technicians.forEach(t => {
+                techMap[t.id] = { tech: t, instCount: 0, specCount: 0, earned: 0, totalJobs: 0 };
+            });
+
+            filtered.forEach(job => {
+                totalAmount += job.amount;
+                if (job.type === 'instalacion') countInst++;
+                else countSpec++;
+
+                const perTechShare = job.amount / job.techIds.length;
+                totalPayroll += job.amount; // total split distributed
+
+                job.techIds.forEach(tId => {
+                    if (!techMap[tId]) {
+                        // In case tech was deleted
+                        techMap[tId] = { tech: { name: 'Técnico Inactivo/Eliminado' }, instCount: 0, specCount: 0, earned: 0, totalJobs: 0 };
+                    }
+                    if (job.type === 'instalacion') techMap[tId].instCount++;
+                    else techMap[tId].specCount++;
+
+                    techMap[tId].earned += perTechShare;
+                    techMap[tId].totalJobs++;
+                });
+            });
+
+            document.getElementById('report-summary-total-amount').textContent = `$${totalAmount.toFixed(2)}`;
+            document.getElementById('report-summary-payroll').textContent = `$${totalPayroll.toFixed(2)}`;
+            document.getElementById('report-summary-count-inst').textContent = countInst;
+            document.getElementById('report-summary-count-spec').textContent = countSpec;
+
+            // Render Payroll Table
+            const tbody = document.getElementById('report-tech-table-body');
+            tbody.innerHTML = '';
+
+            const techEntries = Object.values(techMap).filter(item => item.totalJobs > 0 || region === 'all');
+
+            if (techEntries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">No hay registros de trabajos para el rango o región seleccionada.</td></tr>`;
+                return;
+            }
+
+            techEntries.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+                tr.innerHTML = `
+                    <td class="py-3.5 px-4 font-bold text-slate-900">${item.tech.name}</td>
+                    <td class="py-3.5 px-4 text-center font-semibold text-sky-600">${item.instCount}</td>
+                    <td class="py-3.5 px-4 text-center font-semibold text-amber-600">${item.specCount}</td>
+                    <td class="py-3.5 px-4 text-center font-bold text-slate-700">${item.totalJobs}</td>
+                    <td class="py-3.5 px-4 text-right font-black text-emerald-600 text-base">$${item.earned.toFixed(2)}</td>
+                    <td class="py-3.5 px-4 text-center no-print">
+                        <button onclick="openTechDetailModal('${item.tech.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded border border-slate-300 transition-colors">
+                            <i class="fa-solid fa-eye mr-1"></i>Ver Detalle
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function setQuickDateRange(range) {
+            const now = new Date();
+            if (range === 'month') {
+                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                document.getElementById('report-date-start').value = firstDay;
+                document.getElementById('report-date-end').value = lastDay;
+            }
+            generateReport();
+        }
+
+        function renderTechsList() {
+            const container = document.getElementById('tech-cards-container');
+            container.innerHTML = '';
+
+            document.getElementById('total-techs-badge').textContent = `${technicians.length} Técnico(s)`;
+
+            technicians.forEach(t => {
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl border space-y-3 ${t.active ? 'bg-white border-slate-200' : 'bg-slate-100 border-slate-200 opacity-70'}`;
+                
+                card.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-full ${t.active ? 'bg-migtel-100 text-migtel-700' : 'bg-slate-200 text-slate-500'} flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-user-gear"></i>
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-900 text-sm">${t.name}</div>
+                                <div class="text-[11px] text-slate-500 font-semibold">${t.ci || 'Sin C.I.'} • ${t.position || 'Técnico'}</div>
+                            </div>
+                        </div>
+                        <button onclick="openTechModalForEdit('${t.id}')" title="Editar Expediente" class="p-1.5 text-slate-500 hover:text-migtel-600 hover:bg-slate-100 rounded-lg transition-colors">
+                            <i class="fa-solid fa-pen-to-square text-sm"></i>
+                        </button>
+                    </div>
+
+                    <!-- Details Grid -->
+                    <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <div><span class="text-slate-400 font-medium">Región:</span> <span class="font-bold text-slate-700">${t.region}</span></div>
+                        <div><span class="text-slate-400 font-medium">Teléfono:</span> <span class="font-bold text-slate-700">${t.phone || '-'}</span></div>
+                        <div class="col-span-2 truncate"><span class="text-slate-400 font-medium">Email:</span> <span class="font-semibold text-slate-700">${t.email || '-'}</span></div>
+                        <div class="col-span-2"><span class="text-slate-400 font-medium">Depto:</span> <span class="font-semibold text-slate-700">${t.department || '-'}</span></div>
+                    </div>
+
+                    <!-- Uniform Sizes Badge Row -->
+                    <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-100">
+                        <div class="flex space-x-2">
+                            <span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-semibold">Camisa: ${t.shirtSize || 'M'}</span>
+                            <span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-semibold">Pantalón: ${t.pantSize || '-'}</span>
+                            <span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-semibold">Calzado: ${t.shoeSize || '-'}</span>
+                        </div>
+                        <button onclick="toggleTechActive('${t.id}')" title="${t.active ? 'Desactivar' : 'Activar'}" class="text-[10px] font-semibold px-2 py-0.5 rounded ${t.active ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100' : 'text-slate-500 bg-slate-200'}">
+                            ${t.active ? '<i class="fa-solid fa-check"></i> Activo' : '<i class="fa-solid fa-user-slash"></i> Inactivo'}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Re-render tech selection grid in job form
+            renderTechSelectionGrid();
+        }
+
+        // Tech Modal Edit & Create Handlers
+        function openTechModalForAdd() {
+            document.getElementById('modal-tech-form-title').textContent = 'Registrar Nuevo Técnico';
+            document.getElementById('tech-edit-id').value = '';
+            document.getElementById('tech-modal-form').reset();
+            document.getElementById('tech-form-modal').classList.remove('hidden');
+        }
+
+        function openTechModalForEdit(techId) {
+            const tech = technicians.find(t => t.id === techId);
+            if (!tech) return;
+
+            document.getElementById('modal-tech-form-title').textContent = 'Editar Expediente de Técnico';
+            document.getElementById('tech-edit-id').value = tech.id;
+            
+            document.getElementById('tech-name').value = tech.name || '';
+            document.getElementById('tech-ci').value = tech.ci || '';
+            document.getElementById('tech-phone').value = tech.phone || '';
+            document.getElementById('tech-email').value = tech.email || '';
+            document.getElementById('tech-address').value = tech.address || '';
+            document.getElementById('tech-region').value = tech.region || 'Caracas';
+            document.getElementById('tech-department').value = tech.department || '';
+            document.getElementById('tech-position').value = tech.position || '';
+            document.getElementById('tech-shirt').value = tech.shirtSize || 'M';
+            document.getElementById('tech-pant').value = tech.pantSize || '';
+            document.getElementById('tech-shoes').value = tech.shoeSize || '';
+
+            document.getElementById('tech-form-modal').classList.remove('hidden');
+        }
+
+        function closeTechFormModal() {
+            document.getElementById('tech-form-modal').classList.add('hidden');
+        }
+
+        function handleSaveTechnician(e) {
+            e.preventDefault();
+
+            const editId = document.getElementById('tech-edit-id').value;
+            const techData = {
+                name: document.getElementById('tech-name').value,
+                ci: document.getElementById('tech-ci').value,
+                phone: document.getElementById('tech-phone').value,
+                email: document.getElementById('tech-email').value,
+                address: document.getElementById('tech-address').value,
+                region: document.getElementById('tech-region').value,
+                department: document.getElementById('tech-department').value,
+                position: document.getElementById('tech-position').value,
+                shirtSize: document.getElementById('tech-shirt').value,
+                pantSize: document.getElementById('tech-pant').value,
+                shoeSize: document.getElementById('tech-shoes').value,
+                active: true
+            };
+
+            if (editId) {
+                // Update existing tech
+                const index = technicians.findIndex(t => t.id === editId);
+                if (index !== -1) {
+                    technicians[index] = { ...technicians[index], ...techData };
+                    showToast(`Técnico ${techData.name} actualizado correctamente.`, 'success');
+                }
+            } else {
+                // Create new tech
+                const newTech = {
+                    id: 'tech-' + Date.now(),
+                    ...techData
+                };
+                technicians.push(newTech);
+                showToast(`Técnico ${techData.name} creado exitosamente.`, 'success');
+            }
+
+            saveData();
+            renderTechsList();
+            closeTechFormModal();
+        }
+
+        function toggleTechActive(techId) {
+            const tech = technicians.find(t => t.id === techId);
+            if (tech) {
+                tech.active = !tech.active;
+                saveData();
+                renderTechsList();
+                showToast(`Estado de ${tech.name} actualizado.`, 'info');
+            }
+        }
+
+        // --- DASHBOARD METRICS AND REGIONAL PIE CHART ---
+        function updateDashboardMetricsAndChart() {
+            const todayStr = getFormattedDate(0);
+            
+            // Calculate Current Week boundaries (Monday to Sunday)
+            const now = new Date();
+            const currentDay = now.getDay(); // 0 is Sunday
+            const diffToMonday = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+            const startOfWeek = new Date(now.setDate(diffToMonday));
+            startOfWeek.setHours(0,0,0,0);
+            
+            // Current Month
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth();
+
+            let countDay = 0;
+            let countWeek = 0;
+            let countMonth = 0;
+            let countSpecMonth = 0;
+            let revenueMonth = 0;
+
+            // Tech jobs counter for Top Tech calculation
+            const techMonthlyJobs = {};
+            technicians.forEach(t => techMonthlyJobs[t.id] = 0);
+
+            // Region distribution counts for installations
+            const regionsList = ["Caracas", "Guatire-Guarenas", "Caucagua", "Higuerote", "Barlovento"];
+            const regionCounts = {
+                "Caracas": 0,
+                "Guatire-Guarenas": 0,
+                "Caucagua": 0,
+                "Higuerote": 0,
+                "Barlovento": 0
+            };
+
+            let totalInstalaciones = 0;
+
+            jobs.forEach(j => {
+                // Date parsing
+                const jobDateParts = j.date.split('-');
+                const jobDate = new Date(jobDateParts[0], jobDateParts[1] - 1, jobDateParts[2]);
+                const isThisMonth = jobDate.getFullYear() === currentYear && jobDate.getMonth() === currentMonth;
+
+                if (isThisMonth) {
+                    revenueMonth += j.amount;
+                    if (j.type === 'especial') countSpecMonth++;
+
+                    // Increment for top tech calculation
+                    j.techIds.forEach(id => {
+                        techMonthlyJobs[id] = (techMonthlyJobs[id] || 0) + 1;
+                    });
+                }
+
+                if (j.type === 'instalacion') {
+                    totalInstalaciones++;
+                    
+                    if (regionCounts[j.region] !== undefined) {
+                        regionCounts[j.region]++;
+                    } else {
+                        regionCounts[j.region] = 1;
+                    }
+
+                    if (j.date === todayStr) countDay++;
+                    if (jobDate >= startOfWeek) countWeek++;
+                    if (isThisMonth) countMonth++;
+                }
+            });
+
+            // Calculate Top Performer Tech
+            let topTechId = null;
+            let topTechJobsCount = 0;
+            Object.keys(techMonthlyJobs).forEach(id => {
+                if (techMonthlyJobs[id] > topTechJobsCount) {
+                    topTechJobsCount = techMonthlyJobs[id];
+                    topTechId = id;
+                }
+            });
+
+            const topTechObj = technicians.find(t => t.id === topTechId);
+
+            // Update KPI Elements
+            document.getElementById('kpi-inst-day').textContent = countDay;
+            document.getElementById('kpi-inst-week').textContent = countWeek;
+            document.getElementById('kpi-inst-month').textContent = countMonth;
+            document.getElementById('kpi-spec-month').textContent = countSpecMonth;
+            document.getElementById('kpi-revenue-month').textContent = `$${revenueMonth.toFixed(2)}`;
+            document.getElementById('kpi-top-tech-name').textContent = topTechObj ? topTechObj.name : 'N/A';
+            document.getElementById('kpi-top-tech-count').textContent = topTechObj ? `${topTechJobsCount} Trabajos completados` : 'Sin registros';
+
+            const activeTechsCount = technicians.filter(t => t.active).length;
+            const avgJobsPerTech = activeTechsCount > 0 ? ((countMonth + countSpecMonth) / activeTechsCount).toFixed(1) : '0.0';
+            document.getElementById('kpi-avg-per-tech').textContent = avgJobsPerTech;
+
+            document.getElementById('chart-total-badge').textContent = `Total: ${totalInstalaciones} Instalaciones`;
+
+            // Update Legend Breakdown List
+            const legendList = document.getElementById('region-legend-list');
+            legendList.innerHTML = '';
+
+            const colors = ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+
+            regionsList.forEach((reg, idx) => {
+                const count = regionCounts[reg] || 0;
+                const percentage = totalInstalaciones > 0 ? ((count / totalInstalaciones) * 100).toFixed(1) : '0.0';
+
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between p-1 rounded hover:bg-white transition-colors";
+                row.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 rounded-full inline-block" style="background-color: ${colors[idx]}"></span>
+                        <span class="font-medium text-slate-800 text-xs">${reg}</span>
+                    </div>
+                    <div class="font-bold text-slate-900 text-xs">${count} <span class="text-[10px] text-slate-400 font-normal">(${percentage}%)</span></div>
+                `;
+                legendList.appendChild(row);
+            });
+
+            // Update Personal (Técnicos) por Organización Widget
+            renderTechsPerRegionWidget(regionsList);
+
+            // Update Pie Chart
+            renderRegionPieChart(regionsList, regionsList.map(r => regionCounts[r]), colors);
+        }
+
+        function renderTechsPerRegionWidget(regionsList) {
+            const container = document.getElementById('techs-by-region-container');
+            const totalBadge = document.getElementById('dash-total-techs-badge');
+            container.innerHTML = '';
+
+            const activeTechs = technicians.filter(t => t.active);
+            totalBadge.textContent = `${technicians.length} Técnicos Registrados`;
+
+            const techCountByRegion = {};
+            regionsList.forEach(r => techCountByRegion[r] = 0);
+
+            activeTechs.forEach(t => {
+                if (techCountByRegion[t.region] !== undefined) {
+                    techCountByRegion[t.region]++;
+                } else {
+                    techCountByRegion[t.region] = 1;
+                }
+            });
+
+            regionsList.forEach(reg => {
+                const count = techCountByRegion[reg] || 0;
+                const pct = activeTechs.length > 0 ? Math.round((count / activeTechs.length) * 100) : 0;
+
+                const item = document.createElement('div');
+                item.className = "space-y-1";
+                item.innerHTML = `
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                        <span class="text-slate-800 flex items-center space-x-1.5">
+                            <i class="fa-solid fa-location-dot text-slate-400 text-[11px]"></i>
+                            <span>${reg}</span>
+                        </span>
+                        <span class="text-slate-900 font-bold">${count} técnico${count !== 1 ? 's' : ''} <span class="text-[10px] text-slate-400 font-normal">(${pct}%)</span></span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div class="bg-indigo-500 h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+                    // Date parsing
+                    const jobDateParts = j.date.split('-');
+                    const jobDate = new Date(jobDateParts[0], jobDateParts[1] - 1, jobDateParts[2]);
+
+                    // Day match
+                    if (j.date === todayStr) countDay++;
+
+                    // Week match
+                    if (jobDate >= startOfWeek) countWeek++;
+
+                    // Month match
+                    if (jobDate.getFullYear() === currentYear && jobDate.getMonth() === currentMonth) {
+                        countMonth++;
+                    }
+                }
+            });
+
+            // Update KPI Card UI elements
+            document.getElementById('kpi-inst-day').textContent = countDay;
+            document.getElementById('kpi-inst-week').textContent = countWeek;
+            document.getElementById('kpi-inst-month').textContent = countMonth;
+            document.getElementById('chart-total-badge').textContent = `Total: ${totalInstalaciones} Instalaciones`;
+
+            // Update Legend Breakdown List
+            const legendList = document.getElementById('region-legend-list');
+            legendList.innerHTML = '';
+
+            const colors = ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+
+            regionsList.forEach((reg, idx) => {
+                const count = regionCounts[reg] || 0;
+                const percentage = totalInstalaciones > 0 ? ((count / totalInstalaciones) * 100).toFixed(1) : '0.0';
+
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between p-1.5 rounded hover:bg-white transition-colors";
+                row.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 rounded-full inline-block" style="background-color: ${colors[idx]}"></span>
+                        <span class="font-medium text-slate-800">${reg}</span>
+                    </div>
+                    <div class="font-bold text-slate-900">${count} <span class="text-[10px] text-slate-400 font-normal">(${percentage}%)</span></div>
+                `;
+                legendList.appendChild(row);
+            });
+
+            // Update or Initialize Chart.js Pie/Doughnut Chart
+            renderRegionPieChart(regionsList, regionsList.map(r => regionCounts[r]), colors);
+        }
+
+        function renderRegionPieChart(labels, dataValues, colors) {
+            const ctx = document.getElementById('regionPieChart').getContext('2d');
+
+            if (regionPieChartInstance) {
+                regionPieChartInstance.data.labels = labels;
+                regionPieChartInstance.data.datasets[0].data = dataValues;
+                regionPieChartInstance.update();
+            } else {
+                regionPieChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: dataValues,
+                            backgroundColor: colors,
+                            borderWidth: 2,
+                            borderColor: '#ffffff',
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false // We use our custom detailed legend on the side
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.raw || 0;
+                                        return ` ${label}: ${value} Instalaciones`;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '65%'
+                    }
+                });
+            }
+        }
+
+        // Modal tech breakdown
+        function openTechDetailModal(techId) {
+            const tech = technicians.find(t => t.id === techId) || { name: 'Técnico Inactivo' };
+            const startDate = document.getElementById('report-date-start').value;
+            const endDate = document.getElementById('report-date-end').value;
+            const region = document.getElementById('report-region').value;
+
+            document.getElementById('modal-tech-name').textContent = tech.name;
+            document.getElementById('modal-tech-subtitle').textContent = `Filtro actual: ${region === 'all' ? 'Todas las Regiones' : region}`;
+
+            // Filter tech's jobs
+            const techJobs = jobs.filter(job => {
+                const isTechInvolved = job.techIds.includes(techId);
+                const matchRegion = region === 'all' || job.region === region;
+                let matchDate = true;
+                if (startDate) matchDate = matchDate && job.date >= startDate;
+                if (endDate) matchDate = matchDate && job.date <= endDate;
+                return isTechInvolved && matchRegion && matchDate;
+            });
+
+            let instCount = 0;
+            let espCount = 0;
+            let totalEarned = 0;
+
+            const listContainer = document.getElementById('modal-jobs-list');
+            listContainer.innerHTML = '';
+
+            if (techJobs.length === 0) {
+                listContainer.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin trabajos en este período.</p>`;
+            } else {
+                techJobs.forEach(j => {
+                    const share = j.amount / j.techIds.length;
+                    totalEarned += share;
+                    if (j.type === 'instalacion') instCount++;
+                    else espCount++;
+
+                    const item = document.createElement('div');
+                    item.className = "p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between text-xs";
+                    item.innerHTML = `
+                        <div>
+                            <div class="font-bold text-slate-800">${j.title}</div>
+                            <div class="text-[10px] text-slate-500">${j.date} • ${j.region} (${j.techIds.length} técnicos)</div>
+                        </div>
+                        <div class="text-right font-bold text-emerald-600">
+                            +$${share.toFixed(2)}
+                        </div>
+                    `;
+                    listContainer.appendChild(item);
+                });
+            }
+
+            document.getElementById('modal-stat-inst').textContent = instCount;
+            document.getElementById('modal-stat-esp').textContent = espCount;
+            document.getElementById('modal-stat-earned').textContent = `$${totalEarned.toFixed(2)}`;
+
+            document.getElementById('tech-detail-modal').classList.remove('hidden');
+        }
+
+        function closeTechModal() {
+            document.getElementById('tech-detail-modal').classList.add('hidden');
+        }
+
+        // Export CSV
+        function exportReportToCSV() {
+            const startDate = document.getElementById('report-date-start').value || 'Inicio';
+            const endDate = document.getElementById('report-date-end').value || 'Actualidad';
+            const region = document.getElementById('report-region').value;
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "MigTel - Reporte de Nomina e Instalaciones\n";
+            csvContent += `Periodo: ${startDate} al ${endDate} - Region: ${region}\n\n`;
+            csvContent += "Tecnico,Instalaciones ($15),Trabajos Especiales,Total Trabajos,Monto Ganado ($)\n";
+
+            technicians.forEach(t => {
+                const techJobs = jobs.filter(j => {
+                    const isInvolved = j.techIds.includes(t.id);
+                    const matchReg = region === 'all' || j.region === region;
+                    let matchD = true;
+                    if (startDate !== 'Inicio') matchD = matchD && j.date >= startDate;
+                    if (endDate !== 'Actualidad') matchD = matchD && j.date <= endDate;
+                    return isInvolved && matchReg && matchD;
+                });
+
+                let inst = 0, esp = 0, earned = 0;
+                techJobs.forEach(j => {
+                    if (j.type === 'instalacion') inst++;
+                    else esp++;
+                    earned += (j.amount / j.techIds.length);
+                });
+
+                if (techJobs.length > 0) {
+                    csvContent += `"${t.name}",${inst},${esp},${techJobs.length},${earned.toFixed(2)}\n`;
+                }
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `MigTel_Nomina_${startDate}_${endDate}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Toast Helpers
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-slate-800';
+            
+            toast.className = `${bgClass} text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium flex items-center space-x-2 transition-all transform translate-y-2 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-info'}"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 50);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function confirmModal(msg) {
+            return window.confirm(msg);
+        }
+
+        function updateQuickStats() {
+            const todayStr = getFormattedDate(0);
+            const todayCount = jobs.filter(j => j.date === todayStr).length;
+            document.getElementById('quick-stat-today').textContent = `${todayCount} Trabajo${todayCount !== 1 ? 's' : ''}`;
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            // Set default date to today
+            document.getElementById('job-date').value = getFormattedDate(0);
+            
+            // Set default date filters for report (current month)
+            setQuickDateRange('month');
+
+            // Render Tech Selection Checkboxes
+            renderTechSelectionGrid();
+            
+            // Initial calculations
+            calculateSplit();
+            updateQuickStats();
+            updateDashboardMetricsAndChart();
+
+            // Set default view tab to Dashboard
+            switchTab('dashboard');
+        };
+    </script>
+</body>
+</html>
