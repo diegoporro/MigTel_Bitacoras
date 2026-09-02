@@ -373,378 +373,215 @@
 
   <!-- JAVASCRIPT LOGIC CON URL CONECTADA -->
   <script>
-    // URL OFICIAL DE GOOGLE APPS SCRIPT VINCULADA CON GOOGLE DRIVE
-    const API_URL = "https://script.google.com/macros/s/AKfycbza8PKROKTfCQJgxtqCxXS5RDzkW9EA1eOs3dnxp2Z7P0hJPrY0911QyeSwKagqq787AQ/exec";
+    // 1. URL DE TU API DE GOOGLE APPS SCRIPT (YA CONFIGURADA)
+  const API_URL = "https://script.google.com/macros/s/AKfycbza8PKROKTfCQJgxtqCxXS5RDzkW9EA1eOs3dnxp2Z7P0hJPrY0911QyeSwKagqq787AQ/exec";
 
-    // Global State
-    let state = {
-      tecnicos: [],
-      instalaciones: [],
-      trabajos: []
+  // 2. BASE DE DATOS LOCAL DE USUARIOS (Para autenticación básica)
+  const USERS = [
+    { email: 'editor@test.com', password: '123456', role: 'Editor', name: 'Carlos Editor' },
+    { email: 'lector@test.com', password: '123456', role: 'Lector', name: 'Ana Lectora' }
+  ];
+
+  // 3. ESTADO GENERAL
+  let currentUser = JSON.parse(sessionStorage.getItem('currentUser')) || null;
+
+  // 4. INICIALIZACIÓN
+  document.addEventListener('DOMContentLoaded', () => {
+    if (currentUser) {
+      showAppView();
+    } else {
+      showLoginView();
+    }
+  });
+
+  // 5. FLUJO DE AUTENTICACIÓN
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-password').value.trim();
+
+    const user = USERS.find(u => u.email === email && u.password === pass);
+
+    if (user) {
+      currentUser = { email: user.email, role: user.role, name: user.name };
+      sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+      
+      // Registrar log de inicio de sesión en Google Drive
+      saveLoginLogToDrive(currentUser.email, currentUser.role);
+      
+      document.getElementById('login-error').innerText = '';
+      document.getElementById('login-form').reset();
+      showAppView();
+    } else {
+      document.getElementById('login-error').innerText = 'Usuario o contraseña incorrectos.';
+    }
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    currentUser = null;
+    sessionStorage.removeItem('currentUser');
+    showLoginView();
+  });
+
+  // 6. NAVEGACIÓN Y PERMISOS DE VISTA
+  function showLoginView() {
+    document.getElementById('login-view').classList.remove('hidden');
+    document.getElementById('app-view').classList.add('hidden');
+  }
+
+  function showAppView() {
+    document.getElementById('login-view').classList.add('hidden');
+    document.getElementById('app-view').classList.remove('hidden');
+
+    document.getElementById('user-display-email').innerText = currentUser.email;
+    document.getElementById('user-display-role').innerText = currentUser.role;
+
+    // Aplicar Restricciones por Rol
+    const isEditor = currentUser.role === 'Editor';
+    
+    if (isEditor) {
+      document.getElementById('editor-section').classList.remove('hidden');
+    } else {
+      document.getElementById('editor-section').classList.add('hidden');
+    }
+
+    // Cargar datos reales desde Google Drive
+    fetchRecordsFromDrive();
+    fetchLogsFromDrive();
+  }
+
+  // 7. INTERACCIÓN CON GOOGLE DRIVE (BITÁCORA / LOGS)
+  async function saveLoginLogToDrive(email, role) {
+    const payload = {
+      action: 'saveLog',
+      email: email,
+      role: role,
+      timestamp: new Date().toLocaleString()
     };
 
-    let currentRegistroType = 'instalacion';
-    let regionChartInstance = null;
-
-    // Initialize App
-    document.addEventListener("DOMContentLoaded", () => {
-      cargarDatosDrive();
-    });
-
-    // Cargar datos desde Google Drive API
-    async function cargarDatosDrive() {
-      const statusInd = document.getElementById("status-indicator");
-      const statusTxt = document.getElementById("status-text");
-
-      try {
-        statusInd.className = "w-2.5 h-2.5 bg-yellow-400 rounded-full mr-2 animate-pulse";
-        statusTxt.innerText = "Sincronizando con Drive...";
-
-        const response = await fetch(API_URL);
-        const data = await response.json();
-
-        state.tecnicos = data.tecnicos || [];
-        state.instalaciones = data.instalaciones || [];
-        state.trabajos = data.trabajos || [];
-
-        statusInd.className = "w-2.5 h-2.5 bg-emerald-400 rounded-full mr-2";
-        statusTxt.innerText = "Conectado a Google Drive";
-
-        renderDashboard();
-        renderTecnicosCheckboxes();
-        renderTableTecnicos();
-      } catch (error) {
-        console.error("Error al conectar con Google Drive:", error);
-        statusInd.className = "w-2.5 h-2.5 bg-red-500 rounded-full mr-2";
-        statusTxt.innerText = "Error de conexión (Uso Local)";
-      }
-    }
-
-    // Switch Tabs
-    function switchTab(tab) {
-      ['dashboard', 'registro', 'tecnicos', 'reportes'].forEach(t => {
-        document.getElementById(`section-${t}`).classList.add('hidden');
-        document.getElementById(`tab-${t}`).classList.remove('active-tab');
-        document.getElementById(`tab-${t}`).classList.add('text-gray-500');
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
-
-      document.getElementById(`section-${tab}`).classList.remove('hidden');
-      document.getElementById(`tab-${tab}`).classList.add('active-tab');
-
-      if (tab === 'dashboard') renderDashboard();
-      if (tab === 'reportes') generarReporte();
+    } catch (error) {
+      console.error('Error al guardar log en Drive:', error);
     }
+  }
 
-    // Toggle Registro Type
-    function setRegistroType(type) {
-      currentRegistroType = type;
-      const btnInst = document.getElementById('btn-type-inst');
-      const btnEsp = document.getElementById('btn-type-esp');
-      const fieldsEsp = document.getElementById('fields-trabajo-especial');
-      const montoInput = document.getElementById('reg-monto');
+  async function fetchLogsFromDrive() {
+    const tbody = document.getElementById('logs-tbody');
+    tbody.innerHTML = '<tr><td colspan="3">Cargando bitácora desde Google Drive...</td></tr>';
 
-      if (type === 'instalacion') {
-        btnInst.className = "py-3 px-4 rounded-lg border-2 border-blue-600 bg-blue-50 text-blue-700 font-bold flex justify-center items-center space-x-2";
-        btnEsp.className = "py-3 px-4 rounded-lg border-2 border-slate-200 bg-white text-slate-600 font-bold flex justify-center items-center space-x-2";
-        fieldsEsp.classList.add('hidden');
-        montoInput.value = "15.00";
-      } else {
-        btnEsp.className = "py-3 px-4 rounded-lg border-2 border-amber-600 bg-amber-50 text-amber-700 font-bold flex justify-center items-center space-x-2";
-        btnInst.className = "py-3 px-4 rounded-lg border-2 border-slate-200 bg-white text-slate-600 font-bold flex justify-center items-center space-x-2";
-        fieldsEsp.classList.remove('hidden');
-        montoInput.value = "";
-      }
-      calcularCalculoVivo();
-    }
-
-    // Render Tecnicos Checkboxes in Form
-    function renderTecnicosCheckboxes() {
-      const container = document.getElementById('reg-tecnicos-checkboxes');
-      container.innerHTML = '';
-
-      const activos = state.tecnicos.filter(t => t.Estado !== 'Inactivo');
-
-      if (activos.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-400 p-2">No hay técnicos registrados activos.</p>';
+    try {
+      const response = await fetch(`${API_URL}?action=getLogs`);
+      const logs = await response.json();
+      
+      tbody.innerHTML = '';
+      if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3">No hay inicios de sesión registrados.</td></tr>';
         return;
       }
 
-      activos.forEach(t => {
-        const div = document.createElement('label');
-        div.className = "flex items-center space-x-2 bg-white p-2 rounded border border-slate-200 cursor-pointer text-sm hover:bg-blue-50";
-        div.innerHTML = `
-          <input type="checkbox" name="tec-select" value="${t.ID}" onchange="calcularCalculoVivo()" class="rounded text-blue-600 focus:ring-blue-500">
-          <span class="font-medium text-slate-700">${t.Nombre_Apellido || t.Nombre}</span>
-          <span class="text-xs text-slate-400">(${t.Region})</span>
+      logs.reverse().forEach(log => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${log.email}</td>
+          <td><span class="badge ${log.role === 'Editor' ? 'badge-editor' : 'badge-lector'}">${log.role}</span></td>
+          <td>${log.timestamp}</td>
         `;
-        container.appendChild(div);
+        tbody.appendChild(tr);
       });
+    } catch (error) {
+      tbody.innerHTML = '<tr><td colspan="3" style="color:red;">Error al cargar datos desde Google Drive.</td></tr>';
+      console.error(error);
     }
+  }
 
-    // Live Math Calculation
-    function calcularCalculoVivo() {
-      const montoTotal = parseFloat(document.getElementById('reg-monto').value) || 0;
-      const selected = document.querySelectorAll('input[name="tec-select"]:checked');
-      const count = selected.length || 1;
-      const individual = montoTotal / count;
+  // 8. INTERACCIÓN CON GOOGLE DRIVE (REGISTROS / ACTIVIDADES)
+  document.getElementById('record-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (currentUser.role !== 'Editor') return;
 
-      document.getElementById('calc-cantidad-tecnicos').innerText = selected.length;
-      document.getElementById('calc-monto-individual').innerText = `$${individual.toFixed(2)}`;
+    const btnSubmit = document.getElementById('record-submit-btn');
+    btnSubmit.disabled = true;
+    btnSubmit.innerText = 'Guardando en Drive...';
+
+    const title = document.getElementById('record-title').value.trim();
+    const desc = document.getElementById('record-desc').value.trim();
+    const now = new Date().toLocaleString();
+
+    const recordPayload = {
+      action: 'saveRecord',
+      id: 'REC-' + Date.now(),
+      title: title,
+      desc: desc,
+      createdBy: currentUser.email,
+      createdAt: now,
+      updatedBy: currentUser.email,
+      updatedAt: now
+    };
+
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(recordPayload)
+      });
+
+      resetRecordForm();
+      // Pequeña pausa para permitir que Apps Script procese antes de recargar
+      setTimeout(() => {
+        fetchRecordsFromDrive();
+      }, 1000);
+
+    } catch (error) {
+      alert('Hubo un error al guardar en Google Drive.');
+      console.error(error);
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.innerText = 'Guardar Registro';
     }
+  });
 
-    // Guardar Registro en Backend / Drive
-    async function guardarRegistro(e) {
-      e.preventDefault();
-      const selected = Array.from(document.querySelectorAll('input[name="tec-select"]:checked')).map(cb => cb.value);
+  async function fetchRecordsFromDrive() {
+    const tbody = document.getElementById('records-tbody');
+    tbody.innerHTML = '<tr><td colspan="4">Cargando registros desde Google Drive...</td></tr>';
 
-      if (selected.length === 0) {
-        alert("Debes seleccionar al menos un técnico.");
+    try {
+      const response = await fetch(`${API_URL}?action=getRecords`);
+      const records = await response.json();
+      
+      tbody.innerHTML = '';
+      if (records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4">No hay registros guardados.</td></tr>';
         return;
       }
 
-      const region = document.getElementById('reg-region').value;
-      const montoTotal = parseFloat(document.getElementById('reg-monto').value);
-      const montoPorTecnico = montoTotal / selected.length;
-      const fecha = new Date().toISOString().split('T')[0];
-
-      if (currentRegistroType === 'instalacion') {
-        const payload = {
-          action: 'registrarInstalacion',
-          id: 'INST-' + Date.now(),
-          fecha: fecha,
-          region: region,
-          precioTotal: montoTotal,
-          tecnicosIds: selected,
-          montoPorTecnico: montoPorTecnico
-        };
-
-        state.instalaciones.push(payload);
-        enviarADrive(payload);
-      } else {
-        const payload = {
-          action: 'registrarTrabajo',
-          id: 'TRAB-' + Date.now(),
-          fecha: fecha,
-          titulo: document.getElementById('reg-titulo').value,
-          explicacion: document.getElementById('reg-explicacion').value,
-          region: region,
-          montoTotal: montoTotal,
-          tecnicosIds: selected,
-          montoPorTecnico: montoPorTecnico
-        };
-
-        state.trabajos.push(payload);
-        enviarADrive(payload);
-      }
-
-      alert("¡Registro guardado exitosamente!");
-      document.getElementById('form-registro').reset();
-      setRegistroType('instalacion');
-      renderDashboard();
-    }
-
-    async function enviarADrive(payload) {
-      try {
-        await fetch(API_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } catch (err) {
-        console.error("Error al enviar registro a Google Drive:", err);
-      }
-    }
-
-    // Render Dashboard & Statistics
-    function renderDashboard() {
-      const hoy = new Date().toISOString().split('T')[0];
-      const instHoy = state.instalaciones.filter(i => i.Fecha === hoy).length;
-      document.getElementById('dash-inst-hoy').innerText = instHoy;
-
-      document.getElementById('dash-inst-semana').innerText = state.instalaciones.length;
-      document.getElementById('dash-inst-mes').innerText = state.instalaciones.length;
-
-      const totalMonto = state.instalaciones.reduce((acc, curr) => acc + (parseFloat(curr.PrecioTotal) || 0), 0) +
-                         state.trabajos.reduce((acc, curr) => acc + (parseFloat(curr.MontoTotal) || 0), 0);
-      document.getElementById('dash-monto-mes').innerText = `$${totalMonto.toFixed(2)}`;
-
-      // Render Region Pie Chart
-      const regiones = ["Caracas", "Guatire-Guarenas", "Caucagua", "Higuerote", "Barlovento"];
-      const counts = regiones.map(r => state.instalaciones.filter(i => i.Region === r).length);
-
-      const ctx = document.getElementById('regionChart').getContext('2d');
-      if (regionChartInstance) regionChartInstance.destroy();
-
-      regionChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: regiones,
-          datasets: [{
-            data: counts,
-            backgroundColor: ['#2563eb', '#4f46e5', '#059669', '#d97706', '#dc2626']
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-
-      // Render Personal per Region
-      const listContainer = document.getElementById('list-personal-region');
-      listContainer.innerHTML = '';
-
-      regiones.forEach(r => {
-        const cant = state.tecnicos.filter(t => t.Region === r).length;
-        const div = document.createElement('div');
-        div.className = "flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100";
-        div.innerHTML = `
-          <span class="font-medium text-slate-700">${r}</span>
-          <span class="bg-blue-100 text-blue-800 font-bold text-xs px-2.5 py-1 rounded-full">${cant} Técnicos</span>
-        `;
-        listContainer.appendChild(div);
-      });
-    }
-
-    // Render Table Tecnicos
-    function renderTableTecnicos() {
-      const tbody = document.getElementById('table-tecnicos-body');
-      tbody.innerHTML = '';
-
-      state.tecnicos.forEach(t => {
+      records.reverse().forEach(r => {
         const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50";
         tr.innerHTML = `
-          <td class="p-4 font-bold text-slate-800">${t.Nombre_Apellido || t.Nombre}</td>
-          <td class="p-4">${t.Cedula || '-'}</td>
-          <td class="p-4 text-xs">${t.Telefono || '-'}<br><span class="text-slate-400">${t.Email || ''}</span></td>
-          <td class="p-4 text-xs">${t.Departamento || '-'}<br><span class="text-slate-400">${t.Cargo || ''}</span></td>
-          <td class="p-4"><span class="bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded">${t.Region}</span></td>
-          <td class="p-4 text-xs">C:${t.TallaCamisa || '-'} / P:${t.TallaPantalon || '-'} / Z:${t.TallaZapatos || '-'}</td>
-          <td class="p-4 text-center">
-            <span class="px-2 py-1 rounded-full text-xs font-bold ${t.Estado === 'Inactivo' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}">
-              ${t.Estado || 'Activo'}
-            </span>
-          </td>
-          <td class="p-4 text-right">
-            <button onclick="editTecnico('${t.ID}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold mr-2"><i class="fa-solid fa-pen"></i> Editar</button>
-          </td>
+          <td><strong>${r.title}</strong></td>
+          <td>${r.desc}</td>
+          <td><small>${r.createdBy}<br><span style="color:#64748b">${r.createdAt}</span></small></td>
+          <td><small>${r.updatedBy}<br><span style="color:#64748b">${r.updatedAt}</span></small></td>
         `;
         tbody.appendChild(tr);
       });
+    } catch (error) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:red;">Error al obtener datos desde Google Drive.</td></tr>';
+      console.error(error);
     }
+  }
 
-    // Modal Handlers
-    function openModalTecnico() {
-      document.getElementById('form-tecnico').reset();
-      document.getElementById('tec-id').value = '';
-      document.getElementById('modal-tec-title').innerText = 'Agregar Nuevo Técnico';
-      document.getElementById('modal-tecnico').classList.remove('hidden');
-    }
-
-    function closeModalTecnico() {
-      document.getElementById('modal-tecnico').classList.add('hidden');
-    }
-
-    function editTecnico(id) {
-      const t = state.tecnicos.find(item => item.ID === id);
-      if (!t) return;
-
-      document.getElementById('tec-id').value = t.ID;
-      document.getElementById('tec-nombre').value = t.Nombre_Apellido || t.Nombre || '';
-      document.getElementById('tec-cedula').value = t.Cedula || '';
-      document.getElementById('tec-telefono').value = t.Telefono || '';
-      document.getElementById('tec-email').value = t.Email || '';
-      document.getElementById('tec-direccion').value = t.Direccion || '';
-      document.getElementById('tec-departamento').value = t.Departamento || '';
-      document.getElementById('tec-cargo').value = t.Cargo || '';
-      document.getElementById('tec-region').value = t.Region || 'Caracas';
-      document.getElementById('tec-camisa').value = t.TallaCamisa || '';
-      document.getElementById('tec-pantalon').value = t.TallaPantalon || '';
-      document.getElementById('tec-zapatos').value = t.TallaZapatos || '';
-
-      document.getElementById('modal-tec-title').innerText = 'Editar Técnico';
-      document.getElementById('modal-tecnico').classList.remove('hidden');
-    }
-
-    function guardarTecnico(e) {
-      e.preventDefault();
-      const id = document.getElementById('tec-id').value || 'TEC-' + Date.now();
-      const obj = {
-        ID: id,
-        Nombre_Apellido: document.getElementById('tec-nombre').value,
-        Cedula: document.getElementById('tec-cedula').value,
-        Telefono: document.getElementById('tec-telefono').value,
-        Email: document.getElementById('tec-email').value,
-        Direccion: document.getElementById('tec-direccion').value,
-        Departamento: document.getElementById('tec-departamento').value,
-        Cargo: document.getElementById('tec-cargo').value,
-        Region: document.getElementById('tec-region').value,
-        TallaCamisa: document.getElementById('tec-camisa').value,
-        TallaPantalon: document.getElementById('tec-pantalon').value,
-        TallaZapatos: document.getElementById('tec-zapatos').value,
-        Estado: 'Activo'
-      };
-
-      const idx = state.tecnicos.findIndex(t => t.ID === id);
-      if (idx >= 0) {
-        state.tecnicos[idx] = obj;
-      } else {
-        state.tecnicos.push(obj);
-      }
-
-      renderTableTecnicos();
-      renderTecnicosCheckboxes();
-      closeModalTecnico();
-    }
-
-    // Generar Reportes y Nómina
-    function generarReporte() {
-      const region = document.getElementById('rep-region').value;
-      const tbody = document.getElementById('table-reporte-body');
-      tbody.innerHTML = '';
-
-      let totalLiquidacion = 0;
-
-      state.tecnicos.forEach(t => {
-        if (region !== 'TODAS' && t.Region !== region) return;
-
-        // Count installations
-        const insts = state.instalaciones.filter(i => {
-          let ids = i.TecnicosIDs;
-          if (typeof ids === 'string') {
-            try { ids = JSON.parse(ids); } catch(e) { ids = [ids]; }
-          }
-          return Array.isArray(ids) && ids.includes(t.ID);
-        });
-
-        // Count special jobs
-        const trabs = state.trabajos.filter(tr => {
-          let ids = tr.TecnicosIDs;
-          if (typeof ids === 'string') {
-            try { ids = JSON.parse(ids); } catch(e) { ids = [ids]; }
-          }
-          return Array.isArray(ids) && ids.includes(t.ID);
-        });
-
-        const montoInst = insts.reduce((acc, curr) => acc + (parseFloat(curr.MontoPorTecnico) || 0), 0);
-        const montoTrab = trabs.reduce((acc, curr) => acc + (parseFloat(curr.MontoPorTecnico) || 0), 0);
-        const totalTecnico = montoInst + montoTrab;
-
-        totalLiquidacion += totalTecnico;
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="p-3 font-bold">${t.Nombre_Apellido || t.Nombre}</td>
-          <td class="p-3">${t.Cedula || '-'}</td>
-          <td class="p-3">${t.Region}</td>
-          <td class="p-3 text-center font-semibold">${insts.length}</td>
-          <td class="p-3 text-center font-semibold">${trabs.length}</td>
-          <td class="p-3 text-right font-black text-emerald-600">$${totalTecnico.toFixed(2)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      document.getElementById('rep-total-monto').innerText = `$${totalLiquidacion.toFixed(2)}`;
-    }
+  function resetRecordForm() {
+    document.getElementById('record-id').value = '';
+    document.getElementById('record-title').value = '';
+    document.getElementById('record-desc').value = '';
+  }
   </script>
 </body>
 </html>
